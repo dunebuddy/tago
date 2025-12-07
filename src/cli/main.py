@@ -1,8 +1,11 @@
 import json
+import yaml
 from pathlib import Path
 from typing import Optional, List
 
 import typer  # microframework de CLI = Command Line Interface
+
+from importlib.metadata import version, PackageNotFoundError
 
 from core.adapters import load_adapters
 from core.adapters.base import BaseTagAdapter
@@ -12,6 +15,30 @@ from core.scan_engine import scan_resources
 
 
 app = typer.Typer(help="Tag AWS resources based on templates + JSON overrides.")
+
+def get_version():
+    try:
+        return version("tago")
+    except PackageNotFoundError:
+        return "unknown"
+
+def version_callback(value: bool):
+    if value:
+        print(get_version())
+        raise typer.Exit()
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show the version and exit.",
+        callback=version_callback,
+        is_eager=True,
+    )
+):
+    pass
 
 
 def _load_json_str_or_file(json_str: Optional[str], json_file: Optional[Path]) -> dict:
@@ -81,6 +108,13 @@ def tag(
         "--override",
         help="Ignora as tags atuais e aplica só as do template + JSON.",
     ),
+    output: str = typer.Option(
+        "json",
+        "--output",
+        help="Output format: json (default) ou yaml.",
+    ),
+    json: bool = typer.Option(False, "--dev", help="Alias para --output json"),
+    yaml: bool = typer.Option(False, "--hml", help="Alias para --output yaml")
 ):
     """
     Aplica tags em recursos AWS usando template + JSON de merge.
@@ -119,7 +153,12 @@ def tag(
     if env:
         overrides.setdefault("environment", env)
 
-    tag_resources(
+    if json:
+        output = "json"
+    elif yaml:
+        output = "yaml"
+
+    tags = tag_resources(
         arns=arns,
         template_path=str(template),
         overrides=overrides,
@@ -128,6 +167,11 @@ def tag(
         dry_run=dry_run,
         override=override,
     )
+
+    if output == "json":
+        typer.echo(json.dumps(tags, indent=2, ensure_ascii=False))
+    elif output == "yaml":
+        typer.echo(yaml.dump(tags, allow_unicode=True))
 
 
 @app.command()

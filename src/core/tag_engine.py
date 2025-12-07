@@ -29,3 +29,5 @@ def tag_resources(
         tagset = build_tagset(template_path, ctx)
 
         adapter.apply_tags(tagset, dry_run=dry_run, override=override)
+
+        return adapter.get_current_tags()
