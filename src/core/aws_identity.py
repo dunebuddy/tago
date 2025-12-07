@@ -43,6 +43,7 @@ def requires_aws_identity(func: T) -> T:
         # Typer injeta as opções como kwargs com o MESMO nome dos parâmetros
         profile = kwargs.get("profile")
         region = kwargs.get("region")
+        show_identity = kwargs.get("show_identity")
 
         identity: Optional[AwsIdentity] = None
         error_msg: Optional[str] = None
@@ -52,7 +53,8 @@ def requires_aws_identity(func: T) -> T:
         except AwsIdentityError as exc:
             error_msg = str(exc)
 
-        _print_identity(identity, error_msg)
+        if show_identity:
+            _print_identity(identity, error_msg)
         return func(*args, **kwargs)
 
     return wrapper  # type: ignore[return-value]

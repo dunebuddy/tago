@@ -54,6 +54,7 @@ def _load_json_str_or_file(json_str: Optional[str], json_file: Optional[Path]) -
 @app.command()
 @requires_aws_identity
 def tag(
+    show_identity: bool = typer.Option(False, "--show-identity", help="Mostra a identidade AWS atual junto com o output."),
     arns: List[str] = typer.Option(
         None,
         "--arn",
@@ -72,12 +73,12 @@ def tag(
     ),
     json_str: Optional[str] = typer.Option(
         None,
-        "--json",
+        "--overrides",
         help="Inline JSON overrides.",
     ),
     json_file: Optional[Path] = typer.Option(
         None,
-        "--json-file",
+        "--overrides-file",
         help="Path to JSON file with overrides.",
     ),
     profile: Optional[str] = typer.Option(
@@ -103,9 +104,9 @@ def tag(
     dev: bool = typer.Option(False, "--dev", help="Alias para --env dev"),
     hml: bool = typer.Option(False, "--hml", help="Alias para --env hml"),
     prd: bool = typer.Option(False, "--prd", help="Alias para --env prd"),
-    override: bool = typer.Option(
+    force: bool = typer.Option(
         False,
-        "--override",
+        "--force",
         help="Ignora as tags atuais e aplica só as do template + JSON.",
     ),
     output: str = typer.Option(
@@ -113,8 +114,8 @@ def tag(
         "--output",
         help="Output format: json (default) ou yaml.",
     ),
-    json: bool = typer.Option(False, "--dev", help="Alias para --output json"),
-    yaml: bool = typer.Option(False, "--hml", help="Alias para --output yaml")
+    out_json: bool = typer.Option(False, "--json", help="Alias para --output json"),
+    out_yaml: bool = typer.Option(False, "--yaml", help="Alias para --output yaml"),
 ):
     """
     Aplica tags em recursos AWS usando template + JSON de merge.
@@ -153,9 +154,9 @@ def tag(
     if env:
         overrides.setdefault("environment", env)
 
-    if json:
+    if out_json:
         output = "json"
-    elif yaml:
+    elif out_yaml:
         output = "yaml"
 
     tags = tag_resources(
@@ -165,13 +166,17 @@ def tag(
         profile=profile,
         region=region,
         dry_run=dry_run,
-        override=override,
+        override=force,
     )
 
-    if output == "json":
-        typer.echo(json.dumps(tags, indent=2, ensure_ascii=False))
-    elif output == "yaml":
-        typer.echo(yaml.dump(tags, allow_unicode=True))
+    if not dry_run:
+        if output not in ("json", "yaml"):
+            output = "json"
+
+        if output == "json":
+            typer.echo(json.dumps(tags, indent=2, ensure_ascii=False))
+        elif output == "yaml":
+            typer.echo(yaml.dump(tags, allow_unicode=True))
 
 
 @app.command()
