@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, Iterable, List
 from boto3.session import Session
 
 from .base import BaseTagAdapter
@@ -8,6 +8,7 @@ from ..arn import Arn
 
 class ECRRepositoryTagAdapter(BaseTagAdapter):
     service = "ecr"
+    resource_type = "repository"
 
     @classmethod
     def supports(cls, arn: Arn) -> bool:
@@ -16,6 +17,16 @@ class ECRRepositoryTagAdapter(BaseTagAdapter):
         arn:aws:ecr:sa-east-1:123456789012:repository/meu-repo
         """
         return arn.service == "ecr" and arn.resource.startswith("repository/")
+    
+    @classmethod
+    def list_resources(cls, session: Session) -> Iterable[Arn]:
+        client = session.client("ecr")
+        paginator = client.get_paginator("describe_repositories")
+
+        for page in paginator.paginate():
+            for repo in page.get("repositories", []):
+                # describe_repositories retorna 'repositoryArn'
+                yield Arn.parse(repo["repositoryArn"])
 
     def __init__(self, arn: Arn, session: Session) -> None:
         super().__init__(arn, session)

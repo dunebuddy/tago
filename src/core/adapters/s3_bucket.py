@@ -8,6 +8,7 @@ from ..arn import Arn
 
 class S3BucketTagAdapter(BaseTagAdapter):
     service = "s3"
+    resource_type = "bucket"
 
     def __init__(self, arn: Arn, session: Session) -> None:
         super().__init__(arn, session)
@@ -28,9 +29,12 @@ class S3BucketTagAdapter(BaseTagAdapter):
     @classmethod
     def list_resources(cls, session: Session) -> Iterable[Arn]:
         client = session.client("s3")
-        resp = client.list_buckets()
-        for b in resp.get("Buckets", []):
-            yield Arn.parse(b["BucketArn"])
+        paginator = client.get_paginator("list_buckets")
+
+        # list_buckets não tem paginação real, mas o paginator ainda protege contra mudanças de API
+        for page in paginator.paginate():
+            for b in page.get("Buckets", []):
+                yield Arn.parse(b["BucketArn"])
 
     def get_current_tags(self) -> Dict[str, str]:
         """

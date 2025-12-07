@@ -27,7 +27,7 @@ def load_adapters() -> None:
         importlib.import_module(name)
 
 
-def get_adapter_for_arn(arn: Arn, session: Session) -> BaseTagAdapter:
+def get_adapter_for_arn(arn: Arn) -> type[BaseTagAdapter]:
     """
     Resolve o adapter correto para um ARN, disparando o auto-discovery
     se o registry ainda estiver vazio.
@@ -36,11 +36,11 @@ def get_adapter_for_arn(arn: Arn, session: Session) -> BaseTagAdapter:
 
     for adapter_cls in BaseTagAdapter.registry:
         if adapter_cls.supports(arn):
-            return adapter_cls(arn, session)
+            return adapter_cls
 
     raise ValueError(f"Nenhum adapter encontrado para ARN: {arn.raw}")
 
-def get_adapters_for_service(service: str, resource_type: str | None)  -> BaseTagAdapter:
+def get_adapters_for_service(service: str, resource_type: str | None)  -> type[BaseTagAdapter]:
     """
     Resolve o adapter correto para um serviço (e opcionalmente tipo de recurso),
     disparando o auto-discovery se o registry ainda estiver vazio.

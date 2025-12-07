@@ -20,7 +20,9 @@ def tag_resources(
 
     for arn_str in arns:
         arn = Arn.parse(arn_str)
-        adapter = get_adapter_for_arn(arn, session)
+        adapter_cls = get_adapter_for_arn(arn)
+
+        adapter = adapter_cls(arn, session)
         
         adapter_ctx = adapter.get_context()  # ex: {"usage": "storage"}
         ctx: Dict[str, Any] = {**adapter_ctx, **overrides}
