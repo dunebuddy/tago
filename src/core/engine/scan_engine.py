@@ -3,14 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Iterable, Set
 from datetime import datetime, timezone
-from .template_engine import load_template
+from ..template_engine import load_template
 
 from boto3.session import Session
 import yaml
 
-from .arn import Arn
-from .models import ScanReport, ScanResourceReport
-from .adapters import get_adapters_for_service
+from ..arn import Arn
+from ..models import ScanReport, ScanResourceReport
+from ..adapters import get_adapters_for_service
 
 
 def _extract_required_keys(template_dict: Dict) -> Set[str]:

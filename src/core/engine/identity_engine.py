@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Any, Callable, Optional, TypeVar
 
 
-from .models import AwsIdentity, AwsIdentityError
+from ..models import AwsIdentity, AwsIdentityError
 
 T = TypeVar("T", bound=Callable[..., Any])
 

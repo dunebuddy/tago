@@ -1,3 +1,5 @@
+# import re
+
 from typing import List, Dict
 from boto3.session import Session
 
@@ -9,6 +11,8 @@ from ..arn import Arn
 class SecretsManagerSecretTagAdapter(BaseTagAdapter):
     service = "secretsmanager"
 
+    # _SECRET_SUFFIX_RE = re.compile(r"^(?P<base>.+)-[A-Za-z0-9]{6}$")
+
     @classmethod
     def supports(cls, arn: Arn) -> bool:
         # arn:aws:secretsmanager:region:account:secret:NAME-SUFFIX
@@ -18,9 +22,16 @@ class SecretsManagerSecretTagAdapter(BaseTagAdapter):
         super().__init__(arn, session)
         self.client = self.session.client("secretsmanager")
 
-    def _secret_name(self) -> str:
-        # arn.resource => "secret:secret-name-xxxxx"
-        return self.arn.resource.split("secret:", 1)[1]  # remove prefixo
+    # def _secret_name(self) -> str:
+    #     # arn.resource => "secret:secret-name-xxxxx"
+    #     secret_id = self.arn.resource.split("secret:", 1)[1]
+
+    #     m = self._SECRET_SUFFIX_RE.match(secret_id)
+    #     if m:
+    #         return m.group("base")
+
+    #     return secret_id
+
 
     def _to_aws_format(self, tagset: TagSet) -> List[Dict[str, str]]:
         # Secrets Manager usa o formato Key/Value igual S3 e EC2
@@ -35,10 +46,10 @@ class SecretsManagerSecretTagAdapter(BaseTagAdapter):
         """
         Lê as tags atuais do secret no Secrets Manager e retorna como {key: value}.
         """
-        secret_id = self._secret_name()
+        # secret_id = self._secret_name()
 
         try:
-            resp = self.client.describe_secret(SecretId=secret_id)
+            resp = self.client.describe_secret(SecretId=self.arn.raw)
             raw_tags = resp.get("Tags", [])
         except self.client.exceptions.ResourceNotFoundException:
             raw_tags = []
@@ -54,7 +65,7 @@ class SecretsManagerSecretTagAdapter(BaseTagAdapter):
         dry_run: bool = False,
         override: bool = False,
     ) -> None:
-        secret_id = self._secret_name()
+        # secret_id = self._secret_name()
 
         # desired_tags, existing_tags, final_tags já vêm em formato AWS [{Key,Value}]
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
@@ -71,6 +82,6 @@ class SecretsManagerSecretTagAdapter(BaseTagAdapter):
 
         # API para tagging Secrets Manager:
         self.client.tag_resource(
-            SecretId=secret_id,
+            SecretId=self.arn.raw,
             Tags=final_tags,
         )

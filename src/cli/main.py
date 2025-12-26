@@ -9,9 +9,9 @@ from importlib.metadata import version, PackageNotFoundError
 
 from core.adapters import load_adapters
 from core.adapters.base import BaseTagAdapter
-from core.aws_identity import requires_aws_identity
-from core.tag_engine import tag_resources
-from core.scan_engine import scan_resources
+from core.engine.identity_engine import requires_aws_identity
+from core.engine.tag_engine import tag_resources
+from core.engine.scan_engine import scan_resources
 
 
 app = typer.Typer(help="Tag AWS resources based on templates + JSON overrides.")
