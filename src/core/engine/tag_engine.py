@@ -5,32 +5,45 @@ from boto3.session import Session
 
 from ..arn import Arn
 from ..merge import build_tagset
+from ..models import TagSet
 from ..adapters import get_adapter_for_arn
 
 def _read_tags_with_retry(
     adapter,
-    expected_tagset: Dict[str, str],
+    expected_tagset: TagSet,
     max_attempts: int = 5,
     delay_seconds: float = 0.5,
 ) -> Dict[str, str]:
     """
     Lê as tags atuais do recurso com retry e backoff.
-    expected_tagset = tagset que acabamos de tentar aplicar.
+    expected_tagset é um TagSet (não um dict).
+
+    - expected_tagset: TagSet com Tag(key, value)
+    - adapter.get_current_tags(): Dict[str, str]
+    - Retorna: Dict[str, str] com as tags lidas da AWS (ou último valor lido)
     """
-    expected_keys = set(expected_tagset.keys())
+
+    # 1) extrai as chaves esperadas a partir do TagSet
+    expected_keys = {t.key for t in expected_tagset.tags}
+
     last_tags: Dict[str, str] = {}
 
     for attempt in range(1, max_attempts + 1):
-        current = adapter.get_current_tags()  # chama o adapter puro
-        last_tags = current or {}
+        # 2) lê as tags atuais do adapter (sempre dict[str, str])
+        current = adapter.get_current_tags() or {}
+        last_tags = current
 
-        # Se já vemos pelo menos todas as chaves que tentamos aplicar, beleza.
-        if expected_keys.issubset(last_tags.keys()) or attempt == max_attempts:
-            return last_tags
+        current_keys = set(current.keys())
 
+        # 3) se todas as keys esperadas já aparecem, ou acabou o número de tentativas, devolve
+        if expected_keys.issubset(current_keys) or attempt == max_attempts:
+            return current
+
+        # 4) ainda não bateu, espera e tenta de novo (backoff exponencial)
         time.sleep(delay_seconds)
-        delay_seconds *= 2  # backoff exponencial
+        delay_seconds *= 2
 
+    # Se nunca bater o subset, devolve a última leitura
     return last_tags
 
 

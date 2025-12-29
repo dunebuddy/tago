@@ -86,8 +86,9 @@ class CloudWatchLogGroupTagAdapter(BaseTagAdapter):
     def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
         log_group_name = self._parse_log_group_name()
 
-        # Reutiliza a mesma lógica de merge/override do S3:
-        # _get_aws_tags deve devolver (desired_tags, existing_tags, final_tags)
+        # Mantém o mesmo contrato do S3:
+        # desired_tags / existing_tags / final_tags em formato AWS:
+        #   List[{"Key": str, "Value": str}]
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
         if dry_run:
@@ -100,26 +101,16 @@ class CloudWatchLogGroupTagAdapter(BaseTagAdapter):
             )
             return
 
-        # A API de Logs não tem "put" que substitui tudo como no S3,
-        # então precisamos:
-        # - se override=True: remover tags que não estão em final_tags
-        # - sempre: aplicar/atualizar as de final_tags
+        # Para CloudWatch Logs, tag_log_group espera:
+        #   tags = { "Key": "Value", ... }
+        # então convertemos a lista AWS para dict
+        tags_dict = {t["Key"]: t["Value"] for t in (final_tags or [])}
 
-        # existing_tags / final_tags aqui são dict[str, str]
-        existing_keys = set((existing_tags or {}).keys())
-        final_keys = set((final_tags or {}).keys())
+        if not tags_dict:
+            # nada pra aplicar
+            return
 
-        if override:
-            # tags que existiam e não queremos mais:
-            tags_to_remove = list(existing_keys - final_keys)
-            if tags_to_remove:
-                self.client.untag_log_group(
-                    logGroupName=log_group_name,
-                    tags=tags_to_remove,
-                )
-
-        if final_tags:
-            self.client.tag_log_group(
-                logGroupName=log_group_name,
-                tags=final_tags,
-            )
+        self.client.tag_log_group(
+            logGroupName=log_group_name,
+            tags=tags_dict,
+        )
