@@ -15,7 +15,7 @@ from ..adapters import get_adapters_for_service
 
 def _extract_required_keys(template_dict: Dict) -> Set[str]:
     defaults = template_dict.get("defaults", {}) or {}
-    dynamics = template_dict.get("dynamics", {}) or {}
+    dynamics = template_dict.get("dynamic", {}) or {}
     return set(defaults.keys()) | set(dynamics.keys())
 
 def _extract_tag_keys(raw_tags: Any) -> Set[str]:

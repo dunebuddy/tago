@@ -74,6 +74,9 @@ class BaseTagAdapter(ABC):
   
     def _build_aws_tags(self, tags: Dict[str, str]) -> List[Dict[str, str]]:
         return [{"Key": k, "Value": v} for k, v in tags.items()]
+
+    def _aws_tags_to_dict(self, tags: List[Dict[str, str]]) -> Dict[str, str]:
+        return {t["Key"]: t["Value"] for t in tags}
     
     def _get_aws_tags(self, tagset: TagSet, override: bool) -> tuple[List[Dict[str, str]], List[Dict[str, str]], List[Dict[str, str]]]:
         """

@@ -64,6 +64,9 @@ class EC2InstanceTagAdapter(BaseTagAdapter):
         instance_id = self._resource_id()
 
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
+        desired_map = self._aws_tags_to_dict(desired_tags)
+        existing_map = self._aws_tags_to_dict(existing_tags)
+        final_map = self._aws_tags_to_dict(final_tags)
 
         if not dry_run:
             self.client.create_tags(
@@ -72,9 +75,9 @@ class EC2InstanceTagAdapter(BaseTagAdapter):
             )
 
         return TagRunResult(
-            arn=self.arn,
-            desired_tags=desired_tags,
-            existing_tags=existing_tags,
-            final_tags=final_tags,
+            arn=self.arn.raw,
+            desired_tags=desired_map,
+            existing_tags=existing_map,
+            final_tags=final_map,
             pretty_name=self.pretty_name,
         )

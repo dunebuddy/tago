@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 import typer
 import typer_di
@@ -138,14 +138,15 @@ def _print_tag_run(
         elif output == "yaml":
             typer.echo(yaml.dump(r.applied_tags, allow_unicode=True))
             return
-        
-        final_sorted = sorted(r.applied_tags, key=lambda t: t["Key"].lower())
-        max_key_len = max((len(t["Key"]) for t in final_sorted), default=0)
+
+        applied_tags = r.applied_tags or {}
+        final_sorted = sorted(applied_tags.items(), key=lambda item: item[0].lower())
+        max_key_len = max((len(key) for key, _ in final_sorted), default=0)
         
         # Cabeçalho
         print()
         print(GREY + "─────────────────────────────────────────────" + RESET)
-        print(f"{CYAN}{BOLD}RESOURCE:{RESET} {r.arn.raw}")
+        print(f"{CYAN}{BOLD}RESOURCE:{RESET} {r.arn}")
         print(f"{CYAN}{BOLD}TYPE:   {RESET} {r.pretty_name}")
         mode_label = "OVERRIDE (desired overwrites existing)" if override else "SAFE (preserve existing on conflicts)"
         print(f"{YELLOW}{BOLD}MODE:   TAG RUN — {mode_label}{RESET}")
@@ -155,8 +156,8 @@ def _print_tag_run(
         # Desired
         print(f"{CYAN}{BOLD}Applied Tags (from template/context):{RESET}")
         if final_sorted:
-            for t in final_sorted:
-                print(f"  {t['Key']:<{max_key_len}} = {t['Value']}")
+            for key, value in final_sorted:
+                print(f"  {key:<{max_key_len}} = {value}")
         else:
             print(GREY + "  (none)" + RESET)
         print()
@@ -183,25 +184,35 @@ def _print_dry_run(
         final_tags = r.final_tags
 
         # Ordenação consistente
-        desired_sorted = sorted(desired_tags, key=lambda t: t["Key"].lower())
-        existing_sorted = sorted(existing_tags, key=lambda t: t["Key"].lower())
-        final_sorted = sorted(final_tags, key=lambda t: t["Key"].lower())
+        desired_sorted = sorted(desired_tags.items(), key=lambda item: item[0].lower())
+        existing_sorted = sorted(existing_tags.items(), key=lambda item: item[0].lower())
+        final_sorted = sorted(final_tags.items(), key=lambda item: item[0].lower())
 
         if output == "json":
-            typer.echo(json.dumps({"desired": desired_sorted, "existing": existing_sorted, "final": final_tags}, indent=2, ensure_ascii=False))
+            typer.echo(
+                json.dumps(
+                    {"desired": desired_tags, "existing": existing_tags, "final": final_tags},
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
             return
         elif output == "yaml":
-            typer.echo(yaml.dump({"desired": desired_sorted, "existing": existing_sorted, "final": final_tags}, allow_unicode=True))
+            typer.echo(
+                yaml.dump(
+                    {"desired": desired_tags, "existing": existing_tags, "final": final_tags},
+                    allow_unicode=True,
+                )
+            )
             return
 
-        # Converte listas -> dicts
-        desired_map: Dict[str, str] = {t["Key"]: t["Value"] for t in desired_tags}
-        existing_map: Dict[str, str] = {t["Key"]: t["Value"] for t in existing_tags}
-        final_map: Dict[str, str] = {t["Key"]: t["Value"] for t in final_tags}
+        desired_map = desired_tags
+        existing_map = existing_tags
+        final_map = final_tags
 
         # Padding baseado em TODAS as chaves
-        all_tags = desired_tags + existing_tags + final_tags
-        max_key_len = max((len(t["Key"]) for t in all_tags), default=0)
+        all_keys = list(desired_map.keys()) + list(existing_map.keys()) + list(final_map.keys())
+        max_key_len = max((len(key) for key in all_keys), default=0)
 
         # Conjuntos
         desired_keys = set(desired_map.keys())
@@ -224,7 +235,7 @@ def _print_dry_run(
         # Cabeçalho
         print()
         print(GREY + "─────────────────────────────────────────────" + RESET)
-        print(f"{CYAN}{BOLD}RESOURCE:{RESET} {r.arn.raw}")
+        print(f"{CYAN}{BOLD}RESOURCE:{RESET} {r.arn}")
         print(f"{CYAN}{BOLD}TYPE:   {RESET} {r.pretty_name}")
         mode_label = "OVERRIDE (desired overwrites existing)" if override else "SAFE (preserve existing on conflicts)"
         print(f"{YELLOW}{BOLD}MODE:   DRY RUN — {mode_label}{RESET}")
@@ -234,8 +245,8 @@ def _print_dry_run(
         # Desired
         print(f"{CYAN}{BOLD}Desired Tags (from template/context):{RESET}")
         if desired_sorted:
-            for t in desired_sorted:
-                print(f"  {t['Key']:<{max_key_len}} = {t['Value']}")
+            for key, value in desired_sorted:
+                print(f"  {key:<{max_key_len}} = {value}")
         else:
             print(GREY + "  (none)" + RESET)
         print()
@@ -243,8 +254,8 @@ def _print_dry_run(
         # Existing
         print(f"{CYAN}{BOLD}Existing Tags (currently on resource):{RESET}")
         if existing_sorted:
-            for t in existing_sorted:
-                print(f"  {t['Key']:<{max_key_len}} = {t['Value']}")
+            for key, value in existing_sorted:
+                print(f"  {key:<{max_key_len}} = {value}")
         else:
             print(GREY + "  (none)" + RESET)
         print()
@@ -252,9 +263,7 @@ def _print_dry_run(
         # Proposed
         print(f"{CYAN}{BOLD}Proposed Tags (final state if applied):{RESET}")
         if final_sorted:
-            for t in final_sorted:
-                key = t["Key"]
-                val = t["Value"]
+            for key, val in final_sorted:
 
                 if key in added_keys:
                     # tag nova
