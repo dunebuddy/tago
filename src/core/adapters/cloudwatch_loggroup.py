@@ -3,13 +3,14 @@ from botocore.exceptions import ClientError
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class CloudWatchLogGroupTagAdapter(BaseTagAdapter):
     service = "logs"
     resource_type = "log-group"
+    pretty_name = "CloudWatch Log Group"
 
     def __init__(self, arn: Arn, session: Session) -> None:
         super().__init__(arn, session)
@@ -83,7 +84,12 @@ class CloudWatchLogGroupTagAdapter(BaseTagAdapter):
     def get_context(self) -> Dict[str, str]:
         return {"service_type": "logging"}
 
-    def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
+    def apply_tags(
+        self,
+        tagset: TagSet,
+        dry_run: bool = False,
+        override: bool = False,
+    ) -> TagRunResult:
         log_group_name = self._parse_log_group_name()
 
         # Mantém o mesmo contrato do S3:
@@ -91,26 +97,22 @@ class CloudWatchLogGroupTagAdapter(BaseTagAdapter):
         #   List[{"Key": str, "Value": str}]
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                f"CloudWatch Log Group ({log_group_name})",
-                override,
-            )
-            return
+        if not dry_run:
+            # Para CloudWatch Logs, tag_log_group espera:
+            #   tags = { "Key": "Value", ... }
+            # então convertemos a lista AWS para dict
+            tags_dict = {t["Key"]: t["Value"] for t in (final_tags or [])}
 
-        # Para CloudWatch Logs, tag_log_group espera:
-        #   tags = { "Key": "Value", ... }
-        # então convertemos a lista AWS para dict
-        tags_dict = {t["Key"]: t["Value"] for t in (final_tags or [])}
+            if tags_dict:
+                self.client.tag_log_group(
+                    logGroupName=log_group_name,
+                    tags=tags_dict,
+                )
 
-        if not tags_dict:
-            # nada pra aplicar
-            return
-
-        self.client.tag_log_group(
-            logGroupName=log_group_name,
-            tags=tags_dict,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

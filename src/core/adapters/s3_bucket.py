@@ -2,13 +2,14 @@ from typing import Iterable, List, Dict
 from botocore.exceptions import ClientError
 from boto3.session import Session
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class S3BucketTagAdapter(BaseTagAdapter):
     service = "s3"
     resource_type = "bucket"
+    pretty_name = "S3 Bucket"
 
     def __init__(self, arn: Arn, session: Session) -> None:
         super().__init__(arn, session)
@@ -54,9 +55,6 @@ class S3BucketTagAdapter(BaseTagAdapter):
             if code == "NoSuchTagSet":
                 # às vezes vem embalado num ClientError
                 return {}
-            # outros erros (AccessDenied, etc) você escolhe:
-            # - ou levanta de novo
-            # - ou loga e devolve {}
             raise
 
         # aqui já temos TagSet no formato [{"Key": "...", "Value": "..."}, ...]
@@ -66,16 +64,26 @@ class S3BucketTagAdapter(BaseTagAdapter):
     def get_context(self):
         return {"service_type": "storage" }
     
-    def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
+    def apply_tags(
+        self,
+        tagset: TagSet,
+        dry_run: bool = False,
+        override: bool = False,
+    ) -> TagRunResult:
         bucket_name = self._parse_bucket_name()
         
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(desired_tags, existing_tags, final_tags, "S3 Bucket", override)
-            return
+        if not dry_run:
+            self.client.put_bucket_tagging(
+                Bucket=bucket_name,
+                Tagging={"TagSet": final_tags},
+            )
 
-        self.client.put_bucket_tagging(
-            Bucket=bucket_name,
-            Tagging={"TagSet": final_tags},
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

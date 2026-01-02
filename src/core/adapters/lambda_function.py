@@ -2,13 +2,14 @@ from typing import Dict, List, Iterable
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class LambdaFunctionTagAdapter(BaseTagAdapter):
     service = "lambda"
     resource_type = "functions"
+    pretty_name = "Lambda Function"
 
     @classmethod
     def supports(cls, arn: Arn) -> bool:
@@ -58,26 +59,30 @@ class LambdaFunctionTagAdapter(BaseTagAdapter):
         # Já está no formato {k: v}
         return raw_tags
 
-    def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
+    def apply_tags(
+        self,
+        tagset: TagSet,
+        dry_run: bool = False,
+        override: bool = False,
+    ) -> TagRunResult:
         resource_arn = self.arn.raw
 
         # desired_tags, existing_tags, final_tags → sempre [{Key,Value}]
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                "Lambda Function",
-                override
+        if not dry_run:
+            # Converte final_tags para o formato do Lambda ({key: value})
+            lambda_format = self._to_lambda_format(final_tags)
+
+            self.client.tag_resource(
+                Resource=resource_arn,
+                Tags=lambda_format,
             )
-            return
 
-        # Converte final_tags para o formato do Lambda ({key: value})
-        lambda_format = self._to_lambda_format(final_tags)
-
-        self.client.tag_resource(
-            Resource=resource_arn,
-            Tags=lambda_format,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

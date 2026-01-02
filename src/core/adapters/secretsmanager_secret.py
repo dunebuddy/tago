@@ -4,12 +4,13 @@ from typing import List, Dict
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class SecretsManagerSecretTagAdapter(BaseTagAdapter):
     service = "secretsmanager"
+    pretty_name = "Secrets Manager Secret"
 
     # _SECRET_SUFFIX_RE = re.compile(r"^(?P<base>.+)-[A-Za-z0-9]{6}$")
 
@@ -64,24 +65,23 @@ class SecretsManagerSecretTagAdapter(BaseTagAdapter):
         tagset: TagSet,
         dry_run: bool = False,
         override: bool = False,
-    ) -> None:
+    ) -> TagRunResult:
         # secret_id = self._secret_name()
 
         # desired_tags, existing_tags, final_tags já vêm em formato AWS [{Key,Value}]
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                "Secrets Manager Secret",
-                override,
+        if not dry_run:
+            # API para tagging Secrets Manager:
+            self.client.tag_resource(
+                SecretId=self.arn.raw,
+                Tags=final_tags,
             )
-            return
 
-        # API para tagging Secrets Manager:
-        self.client.tag_resource(
-            SecretId=self.arn.raw,
-            Tags=final_tags,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

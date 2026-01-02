@@ -2,7 +2,7 @@ from typing import Dict, List
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
@@ -14,6 +14,7 @@ class ECSTaskDefinitionTagAdapter(BaseTagAdapter):
       arn:aws:ecs:sa-east-1:123456789012:task-definition/meu-task:1
     """
     service = "ecs"
+    pretty_name = "ECS Task Definition"
 
     @classmethod
     def supports(cls, arn: Arn) -> bool:
@@ -57,25 +58,24 @@ class ECSTaskDefinitionTagAdapter(BaseTagAdapter):
         tagset: TagSet,
         dry_run: bool = False,
         override: bool = False,
-    ) -> None:
+    ) -> TagRunResult:
         resource_arn = self.arn.raw
 
         # Sempre em formato [{Key, Value}]
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                "ECS Task Definition",
-                override,
+        if not dry_run:
+            ecs_tags = self._to_ecs_format(final_tags)
+
+            self.client.tag_resource(
+                resourceArn=resource_arn,
+                tags=ecs_tags,
             )
-            return
 
-        ecs_tags = self._to_ecs_format(final_tags)
-
-        self.client.tag_resource(
-            resourceArn=resource_arn,
-            tags=ecs_tags,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

@@ -1,11 +1,11 @@
 import time
 
-from typing import Dict, Any, Iterable
+from typing import Dict, Any, Iterable, List
 from boto3.session import Session
 
 from ..arn import Arn
 from ..merge import build_tagset
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..adapters import get_adapter_for_arn
 
 def _read_tags_with_retry(
@@ -56,9 +56,10 @@ def tag_resources(
     region: str | None = None,
     dry_run: bool = False,
     override: bool = False,
-) -> None:
+) -> List[TagRunResult]:
     session = Session(profile_name=profile, region_name=region)
 
+    results: List[TagRunResult] = []
 
     for arn_str in arns:
         arn = Arn.parse(arn_str)
@@ -70,6 +71,11 @@ def tag_resources(
         ctx: Dict[str, Any] = {**adapter_ctx, **overrides}
         tagset = build_tagset(template_path, ctx)
 
-        adapter.apply_tags(tagset, dry_run=dry_run, override=override)
+        result = adapter.apply_tags(tagset, dry_run=dry_run, override=override)
 
-        return _read_tags_with_retry(adapter, expected_tagset=tagset)
+        if not dry_run:
+            result.applied_tags = _read_tags_with_retry(adapter, expected_tagset=tagset)
+
+        results.append(result)
+
+    return results

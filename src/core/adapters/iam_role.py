@@ -2,12 +2,13 @@ from typing import Dict, List
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class IAMRoleTagAdapter(BaseTagAdapter):
     service = "iam"
+    pretty_name = "IAM Role"
 
     @classmethod
     def supports(cls, arn: Arn) -> bool:
@@ -54,22 +55,26 @@ class IAMRoleTagAdapter(BaseTagAdapter):
         """
         return [{"Key": t.key, "Value": t.value} for t in tagset.tags]
 
-    def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
+    def apply_tags(
+        self,
+        tagset: TagSet,
+        dry_run: bool = False,
+        override: bool = False,
+    ) -> TagRunResult:
         role_name = self._role_name()
 
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                f"IAM Role ({role_name})",
-                override
+        if not dry_run:
+            self.client.tag_role(
+                RoleName=role_name,
+                Tags=final_tags,
             )
-            return
 
-        self.client.tag_role(
-            RoleName=role_name,
-            Tags=final_tags,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

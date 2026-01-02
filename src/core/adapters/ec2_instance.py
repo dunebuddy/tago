@@ -2,12 +2,13 @@ from typing import List, Dict
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class EC2InstanceTagAdapter(BaseTagAdapter):
     service = "ec2"
+    pretty_name = "EC2 Instance"
 
     @classmethod
     def supports(cls, arn: Arn) -> bool:
@@ -50,7 +51,12 @@ class EC2InstanceTagAdapter(BaseTagAdapter):
 
         return {t["Key"]: t["Value"] for t in raw_tags}
 
-    def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
+    def apply_tags(
+        self,
+        tagset: TagSet,
+        dry_run: bool = False,
+        override: bool = False,
+    ) -> TagRunResult:
         """
         Aplica tags na instância EC2 usando a lógica de merge (_get_aws_tags),
         respeitando o parâmetro override e suportando dry_run.
@@ -59,17 +65,16 @@ class EC2InstanceTagAdapter(BaseTagAdapter):
 
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                "EC2 Instance",
-                override,
+        if not dry_run:
+            self.client.create_tags(
+                Resources=[instance_id],
+                Tags=final_tags,
             )
-            return
 
-        self.client.create_tags(
-            Resources=[instance_id],
-            Tags=final_tags,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )

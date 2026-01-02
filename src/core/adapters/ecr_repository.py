@@ -2,13 +2,14 @@ from typing import Dict, Iterable, List
 from boto3.session import Session
 
 from .base import BaseTagAdapter
-from ..models import TagSet
+from ..models import TagSet, TagRunResult
 from ..arn import Arn
 
 
 class ECRRepositoryTagAdapter(BaseTagAdapter):
     service = "ecr"
     resource_type = "repository"
+    pretty_name = "ECR Repository"
 
     @classmethod
     def supports(cls, arn: Arn) -> bool:
@@ -60,22 +61,26 @@ class ECRRepositoryTagAdapter(BaseTagAdapter):
         """
         return [{"Key": t.key, "Value": t.value} for t in tagset.tags]
 
-    def apply_tags(self, tagset: TagSet, dry_run: bool = False, override: bool = False) -> None:
+    def apply_tags(
+        self,
+        tagset: TagSet,
+        dry_run: bool = False,
+        override: bool = False,
+    ) -> TagRunResult:
         resource_arn = self.arn.raw
 
         desired_tags, existing_tags, final_tags = self._get_aws_tags(tagset, override)
 
-        if dry_run:
-            self._print_dry_run(
-                desired_tags,
-                existing_tags,
-                final_tags,
-                "ECR Repository",
-                override,
+        if not dry_run:
+            self.client.tag_resource(
+                resourceArn=resource_arn,
+                tags=final_tags,
             )
-            return
 
-        self.client.tag_resource(
-            resourceArn=resource_arn,
-            tags=final_tags,
+        return TagRunResult(
+            arn=self.arn,
+            desired_tags=desired_tags,
+            existing_tags=existing_tags,
+            final_tags=final_tags,
+            pretty_name=self.pretty_name,
         )
