@@ -49,7 +49,7 @@ def _read_tags_with_retry(
 
 def tag_resources(
     arns: Iterable[str],
-    template_path: str,
+    template_paths: Iterable[str],
     overrides: Dict[str, Any],
     *,
     profile: str | None = None,
@@ -58,6 +58,7 @@ def tag_resources(
     override: bool = False,
 ) -> List[TagRunResult]:
     session = Session(profile_name=profile, region_name=region)
+    template_paths = list(template_paths)
 
     results: List[TagRunResult] = []
 
@@ -69,7 +70,7 @@ def tag_resources(
         
         adapter_ctx = adapter.get_context()  # ex: {"usage": "storage"}
         ctx: Dict[str, Any] = {**adapter_ctx, **overrides}
-        tagset = build_tagset(template_path, ctx)
+        tagset = build_tagset(template_paths, ctx)
 
         result = adapter.apply_tags(tagset, dry_run=dry_run, override=override)
 

@@ -91,7 +91,7 @@ def test_tag_resources_sets_applied_tags_in_non_dry_run(monkeypatch, tmp_path):
 
     results = tag_engine.tag_resources(
         arns=["arn:fake"],
-        template_path=str(tpl),
+        template_paths=[str(tpl)],
         overrides={},
         profile=None,
         region="us-east-1",
@@ -114,7 +114,7 @@ def test_tag_resources_dry_run_does_not_set_applied_tags(monkeypatch, tmp_path):
 
     results = tag_engine.tag_resources(
         arns=["arn:fake"],
-        template_path=str(tpl),
+        template_paths=[str(tpl)],
         overrides={},
         profile=None,
         region="us-east-1",
@@ -133,7 +133,7 @@ def test_tag_resources_returns_results_for_multiple_arns(monkeypatch, tmp_path):
 
     results = tag_engine.tag_resources(
         arns=["arn:fake:1", "arn:fake:2"],
-        template_path=str(tpl),
+        template_paths=[str(tpl)],
         overrides={},
         profile=None,
         region="us-east-1",

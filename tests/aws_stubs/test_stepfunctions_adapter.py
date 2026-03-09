@@ -4,7 +4,7 @@ import boto3
 from botocore.stub import Stubber
 
 from core.arn import Arn
-from core.adapters.stepfunctions_stateMachine import StepFunctionsStateMachineTagAdapter
+from core.adapters.stepfunctions_statemachine import StepFunctionsStateMachineTagAdapter
 from core.models import TagSet
 
 

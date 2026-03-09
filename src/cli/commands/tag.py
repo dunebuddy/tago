@@ -34,11 +34,11 @@ def tag(
         "--arn",
         help="ARN(s) of the resources to tag. Can be passed multiple times.",
     ),
-    template: Path = typer.Option(
+    templates: List[Path] = typer.Option(
         ...,
         "--template",
         "-t",
-        help="Path to template YAML/JSON file.",
+        help="Path to template YAML/JSON file. Can be passed multiple times.",
     ),
     json_str: Optional[str] = typer.Option(
         None,
@@ -60,20 +60,12 @@ def tag(
         "--dry-run",
         help="Do not call AWS; just print what would be done.",
     ),
-    env: Optional[str] = typer.Option(
-        None,
-        "--env",
-        help="Environment (dev|hml|prd).",
-    ),
     force: bool = typer.Option(
         False,
         "--force",
         help="Ignora as tags atuais e aplica só as do template + JSON.",
     ),
     output: str = typer_di.Depends(output_params),
-    dev: bool = typer.Option(False, "--dev", help="Alias para --env dev"),
-    hml: bool = typer.Option(False, "--hml", help="Alias para --env hml"),
-    prd: bool = typer.Option(False, "--prd", help="Alias para --env prd"),
 ) -> None:
     """
     Aplica tags em recursos AWS usando template + JSON de merge.
@@ -90,27 +82,10 @@ def tag(
 
     overrides = _load_json_str(json_str)
 
-    # A parte de configuração de ambiente pelas opções de CLI é a parte com
-    # menor precedência, ou seja, só é aplicada se a tag não vier em qualquer
-    # outro lugar (template ou JSON de overrides).
-    if sum([dev, hml, prd, bool(env)]) > 1:
-        raise typer.BadParameter(
-            "Use apenas uma opção de ambiente: --env, --dev, --hml ou --prd."
-        )
-
-    if dev:
-        env = "dev"
-    elif hml:
-        env = "hml"
-    elif prd:
-        env = "prd"
-
-    if env:
-        overrides.setdefault("environment", env)
 
     tags = tag_resources(
         arns=arns,
-        template_path=str(template),
+        template_paths=[str(t) for t in templates],
         overrides=overrides,
         profile=profile,
         region=region,
@@ -304,3 +279,4 @@ def _print_dry_run(
         print(f"{MAGENTA}{BOLD}DRY RUN ONLY — no changes were applied.{RESET}")
         print(GREY + "─────────────────────────────────────────────" + RESET)
         print()
+
